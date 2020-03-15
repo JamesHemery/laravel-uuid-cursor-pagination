@@ -4,28 +4,24 @@ namespace Jamesh\UuidCursorPagination;
 
 use ArrayAccess;
 use Countable;
+use Illuminate\Contracts\Pagination\Paginator as PaginatorContract;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\AbstractPaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use IteratorAggregate;
 use JsonSerializable;
 
-class UuidCursorPaginator implements Arrayable, ArrayAccess, Countable, IteratorAggregate, JsonSerializable, Jsonable, CursorPaginatorContract
+class UuidCursorPaginator extends AbstractPaginator implements Arrayable, ArrayAccess, Countable, IteratorAggregate, JsonSerializable, Jsonable, PaginatorContract
 {
     protected Request $request;
     protected Cursor $cursor;
-    protected Collection $items;
 
     protected bool $hasNext = false;
     protected bool $hasPrevious = false;
-    protected int $perPage;
     protected string $identifier = 'id';
-
-    protected string $path;
-    protected array $query;
-    protected string $fragment = '';
 
     /**
      * Create a new paginator instance.
@@ -46,8 +42,8 @@ class UuidCursorPaginator implements Arrayable, ArrayAccess, Countable, Iterator
         $this->request ??= request();
         $this->cursor = self::resolveCursor($this->request);
 
-        $this->query ??= $this->request->query->all();
-        $this->path ??= $this->request->path();
+        $this->query = $this->getRawQuery();
+        $this->path = $this->path !== '/' ? rtrim($this->path, '/') : rtrim($this->request->path(), '/');
 
         $this->setItems($items);
     }
@@ -77,7 +73,16 @@ class UuidCursorPaginator implements Arrayable, ArrayAccess, Countable, Iterator
         $this->fragment = $fragment;
     }
 
-    public function buildUrl(array $cursor = [])
+    protected function getRawQuery()
+    {
+        return collect($this->request->query())
+            ->diffKeys([
+                'after' => true,
+                'before' => true
+            ])->all();
+    }
+
+    public function url($cursor = [])
     {
         $query = array_merge($this->query, $cursor);
 
@@ -89,12 +94,12 @@ class UuidCursorPaginator implements Arrayable, ArrayAccess, Countable, Iterator
 
     public function urlBefore($cursor)
     {
-        return $this->buildUrl(['before' => $cursor]);
+        return $this->url(['before' => $cursor]);
     }
 
     public function urlAfter($cursor)
     {
-        return $this->buildUrl(['after' => $cursor]);
+        return $this->url(['after' => $cursor]);
     }
 
     public function nextPageUrl()
@@ -147,6 +152,11 @@ class UuidCursorPaginator implements Arrayable, ArrayAccess, Countable, Iterator
 
         $this->hasPrevious = $value;
         return $this;
+    }
+
+    public function hasMorePages()
+    {
+        return $this->hasNext();
     }
 
     public function nextCursor()
@@ -220,18 +230,12 @@ class UuidCursorPaginator implements Arrayable, ArrayAccess, Countable, Iterator
     {
         return [
             'data' => $this->items->toArray(),
-            'links' => [
-                'next' => $this->nextPageUrl(),
-                'prev' => $this->previousPageUrl(),
-            ],
-            'meta' => [
-                'path' => $this->path,
-                'per_page' => $this->perPage(),
-                'next_cursor' => $this->previousCursor(),
-                'previous_cursor' => $this->nextCursor(),
-                'has_previous' => $this->hasPrevious(),
-                'has_next' => $this->hasNext(),
-            ]
+            'path' => $this->url(),
+            'previous_cursor' => $this->previousCursor(),
+            'next_cursor' => $this->nextCursor(),
+            'per_page' => (int)$this->perPage(),
+            'next_page_url' => $this->nextPageUrl(),
+            'prev_page_url' => $this->previousPageUrl(),
         ];
     }
 
@@ -245,29 +249,8 @@ class UuidCursorPaginator implements Arrayable, ArrayAccess, Countable, Iterator
         return json_encode($this->jsonSerialize(), $options);
     }
 
-    public function getIterator()
+    public function render($view = null, $data = [])
     {
-        return $this->items->getIterator();
+        return '';
     }
-
-    public function offsetExists($offset)
-    {
-        $this->items->offsetExists($offset);
-    }
-
-    public function offsetGet($offset)
-    {
-        $this->items->offsetGet($offset);
-    }
-
-    public function offsetSet($offset, $value)
-    {
-        $this->items->offsetSet($offset, $value);
-    }
-
-    public function offsetUnset($offset)
-    {
-        $this->items->offsetUnset($offset);
-    }
-
 }

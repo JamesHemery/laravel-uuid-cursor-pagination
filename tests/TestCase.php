@@ -3,6 +3,7 @@
 namespace Jamesh\UuidCursorPagination\Test;
 
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\Resources\Json\Resource;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
@@ -47,6 +48,7 @@ abstract class TestCase extends Orchestra
     protected function setUpRoutes(): void
     {
         Route::get('/test-posts', fn() => Post::uuidCursorPaginate(2, ['*'], ['path' => 'api'])->toJson());
+        Route::get('/test-posts-collection', fn() => Resource::collection(Post::uuidCursorPaginate(2, ['*'], ['path' => 'api'])));
     }
 
     protected function getEnvironmentSetUp($app): void
