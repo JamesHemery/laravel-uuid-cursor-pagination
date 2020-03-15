@@ -90,20 +90,35 @@ class UuidCursorPaginationServiceProvider extends ServiceProvider
                     ->where($options['order_column'], '>=', $getSortingValue($cursor->getAfterCursor()))
                     ->where($options['order_column'], '<=', $getSortingValue($cursor->getBeforeCursor()))
                     ->whereNotIn('id', [$cursor->getAfterCursor(), $cursor->getBeforeCursor()]);
+
+                $results = $this->orderBy($options['order_column'], $options['order_direction'])
+                    ->orderBy($this->model->getKeyName(), $options['order_direction'])
+                    ->take($perPage)
+                    ->get($columns);
+
+                $hasNext = $hasElementAfter($queryClone, $results->last()->id);
             }elseif($cursor->isAfter()){
                 $operator = $options['order_direction'] === 'asc' ? '>=' : '<=';
                 $this
                     ->where($options['order_column'], $operator, $getSortingValue($cursor->getAfterCursor()))
                     ->where('id', '!=', $cursor->getAfterCursor());
+
+                $results = $this->orderBy($options['order_column'], $options['order_direction'])
+                    ->orderBy($this->model->getKeyName(), $options['order_direction'])
+                    ->take($perPage + 1)
+                    ->get($columns);
+
+                $hasNext = $results->count() > $perPage;
+            }else{
+                $results = $this->orderBy($options['order_column'], $options['order_direction'])
+                    ->orderBy($this->model->getKeyName(), $options['order_direction'])
+                    ->take($perPage + 1)
+                    ->get($columns);
+
+                $hasNext = $results->count() > $perPage;
             }
 
-            $results = $this->orderBy($options['order_column'], $options['order_direction'])
-                ->orderBy($this->model->getKeyName(), $options['order_direction'])
-                ->take($perPage + 1)
-                ->get($columns);
-
             $hasPrevious = $hasElementBefore($queryClone, $results->first()->id);
-            $hasNext = $results->count() > $perPage;
 
             return (new UuidCursorPaginator($results, $perPage, $options))
                 ->hasPrevious($hasPrevious)->hasNext($hasNext);
