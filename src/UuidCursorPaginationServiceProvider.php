@@ -96,29 +96,29 @@ class UuidCursorPaginationServiceProvider extends ServiceProvider
                     ->take($perPage)
                     ->get($columns);
 
-                $hasNext = $hasElementAfter($queryClone, $results->last()->id);
+                $hasNext = true;
+                $hasPrevious = true;
             }elseif($cursor->isAfter()){
                 $operator = $options['order_direction'] === 'asc' ? '>=' : '<=';
                 $this
                     ->where($options['order_column'], $operator, $getSortingValue($cursor->getAfterCursor()))
                     ->where('id', '!=', $cursor->getAfterCursor());
+            }
 
+            if (!isset($results)){
                 $results = $this->orderBy($options['order_column'], $options['order_direction'])
                     ->orderBy($this->model->getKeyName(), $options['order_direction'])
                     ->take($perPage + 1)
                     ->get($columns);
+            }
 
-                $hasNext = $results->count() > $perPage;
-            }else{
-                $results = $this->orderBy($options['order_column'], $options['order_direction'])
-                    ->orderBy($this->model->getKeyName(), $options['order_direction'])
-                    ->take($perPage + 1)
-                    ->get($columns);
-
+            if (!isset($hasNext)){
                 $hasNext = $results->count() > $perPage;
             }
 
-            $hasPrevious = $hasElementBefore($queryClone, $results->first()->id);
+            if (!isset($hasPrevious)){
+                $hasPrevious = $hasElementBefore($queryClone, $results->first()->id);
+            }
 
             return (new UuidCursorPaginator($results, $perPage, $options))
                 ->hasPrevious($hasPrevious)->hasNext($hasNext);
