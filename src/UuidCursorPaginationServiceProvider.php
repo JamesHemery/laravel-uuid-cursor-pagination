@@ -28,6 +28,8 @@ class UuidCursorPaginationServiceProvider extends ServiceProvider
             $options['request'] ??= request();
             $options['order_column'] ??= $this->model->getCreatedAtColumn();
             $options['order_direction'] ??= 'asc';
+            
+            $this->getQuery()->orders = null;
 
             $cursor = UuidCursorPaginator::resolveCursor($options['request']);
             $queryClone = clone $this;
